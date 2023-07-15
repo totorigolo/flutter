@@ -171,6 +171,9 @@ abstract class FlutterCommand extends Command<void> {
   /// The flag name for whether or not to use ipv6.
   static const String ipv6Flag = 'ipv6';
 
+  /// The option name to specify a custom launch URL.
+  static const String kWebLaunchUrl = 'web-launch-url';
+
   @override
   ArgParser get argParser => _argParser;
   final ArgParser _argParser = ArgParser(
@@ -280,9 +283,9 @@ abstract class FlutterCommand extends Command<void> {
       help: 'Enables expression evaluation in the debugger.',
       hide: !verboseHelp,
     );
-    argParser.addOption('web-launch-url',
+    argParser.addOption(kWebLaunchUrl,
       help: 'The URL to provide to the browser. Defaults to an HTTP URL with the host '
-          'name of "--web-hostname", the port of "--web-port", and the path set to "/".',
+          'name of "--$kWebLaunchUrl", the port of "--web-port", and the path set to "/".',
     );
     argParser.addMultiOption(
       FlutterOptions.kWebBrowserFlag,
@@ -1717,6 +1720,20 @@ Run 'flutter -h' (or 'flutter <command> -h') for available flutter commands and 
       final String targetPath = targetFile;
       if (!globals.fs.isFileSync(targetPath)) {
         throw ToolExit(userMessages.flutterTargetFileMissing(targetPath));
+      }
+    }
+
+    if ((argResults?.options.contains(kWebLaunchUrl) ?? false)
+        && (argResults?.wasParsed(kWebLaunchUrl) ?? false)) {
+      final String? webLaunchUrl = stringArg(kWebLaunchUrl);
+      if (webLaunchUrl != null) {
+        // This regex accepts HTTPS URLs to allow use of reverse proxy during
+        // development. In any case, Flutter run won't start a HTTPS server.
+        // See also: https://github.com/flutter/flutter/issues/60704
+        final RegExp pattern = RegExp(r'^((https?)?:\/\/)[^\s]+');
+        if (!pattern.hasMatch(webLaunchUrl)) {
+          throwToolExit('"$webLaunchUrl" is not a valid HTTP(S) URL.');
+        }
       }
     }
   }

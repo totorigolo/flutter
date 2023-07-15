@@ -524,6 +524,66 @@ void main() {
         Usage: () => usage,
       });
 
+      testUsingContext('fails when --web-launch-url uses an invalid URL', () async {
+        final FakeDevice device = FakeDevice(isLocalEmulator: true, platformType: PlatformType.web);
+        testDeviceManager.devices = <Device>[device];
+
+        final TestRunCommandThatOnlyValidates command = TestRunCommandThatOnlyValidates();
+        await expectLater(createTestCommandRunner(command).run(<String>[
+          'run',
+          '--no-pub',
+          '--no-hot',
+          '--web-launch-url=invalid://url',
+        ]), throwsToolExit(message: '"invalid://url" is not a valid HTTP URL.'));
+      }, overrides: <Type, Generator>{
+        FileSystem: () => fs,
+        ProcessManager: () => FakeProcessManager.any(),
+        DeviceManager: () => testDeviceManager,
+        Cache: () => Cache.test(processManager: FakeProcessManager.any()),
+      });
+
+      testUsingContext('--web-launch-url works with HTTP URL', () async {
+        final FakeDevice device = FakeDevice(isLocalEmulator: true, platformType: PlatformType.web);
+        testDeviceManager.devices = <Device>[device];
+
+        final RunCommand command = RunCommand();
+        await expectToolExitLater(createTestCommandRunner(command).run(<String>[
+          'run',
+          '--no-pub',
+          '--no-hot',
+          '--web-launch-url=http://flutter.dev',
+        ]), isNull);
+
+        final DebuggingOptions options = await command.createDebuggingOptions(false);
+        expect(options.webLaunchUrl, equals('http://flutter.dev'));
+      }, overrides: <Type, Generator>{
+        Cache: () => Cache.test(processManager: FakeProcessManager.any()),
+        DeviceManager: () => testDeviceManager,
+        FileSystem: () => fs,
+        ProcessManager: () => FakeProcessManager.any(),
+      });
+
+      testUsingContext('--web-launch-url works with HTTPS URL', () async {
+        final FakeDevice device = FakeDevice(isLocalEmulator: true, platformType: PlatformType.web);
+        testDeviceManager.devices = <Device>[device];
+
+        final RunCommand command = RunCommand();
+        await expectToolExitLater(createTestCommandRunner(command).run(<String>[
+          'run',
+          '--no-pub',
+          '--no-hot',
+          '--web-launch-url=https://flutter.dev',
+        ]), isNull);
+
+        final DebuggingOptions options = await command.createDebuggingOptions(false);
+        expect(options.webLaunchUrl, equals('https://flutter.dev'));
+      }, overrides: <Type, Generator>{
+        Cache: () => Cache.test(processManager: FakeProcessManager.any()),
+        DeviceManager: () => testDeviceManager,
+        FileSystem: () => fs,
+        ProcessManager: () => FakeProcessManager.any(),
+      });
+
       group('--machine', () {
         testUsingContext('enables multidex by default', () async {
           final DaemonCapturingRunCommand command = DaemonCapturingRunCommand();
@@ -1120,30 +1180,6 @@ void main() {
     Cache: () => Cache.test(processManager: FakeProcessManager.any()),
     FileSystem: () => MemoryFileSystem.test(),
     ProcessManager: () => FakeProcessManager.any(),
-  });
-
-  testUsingContext('fails when "--web-launch-url" is not supported', () async {
-    final RunCommand command = RunCommand();
-    await expectLater(
-          () => createTestCommandRunner(command).run(<String>[
-        'run',
-        '--web-launch-url=http://flutter.dev',
-      ]),
-      throwsA(isException.having(
-            (Exception exception) => exception.toString(),
-        'toString',
-        isNot(contains('web-launch-url')),
-      )),
-    );
-
-    final DebuggingOptions options = await command.createDebuggingOptions(true);
-    expect(options.webLaunchUrl, 'http://flutter.dev');
-
-    final RegExp pattern = RegExp(r'^((http)?:\/\/)[^\s]+');
-    expect(pattern.hasMatch(options.webLaunchUrl!), true);
-  }, overrides: <Type, Generator>{
-    ProcessManager: () => FakeProcessManager.any(),
-    Logger: () => BufferLogger.test(),
   });
 }
 
